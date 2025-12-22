@@ -37,6 +37,7 @@ i2c:
 
 sensor:
   - platform: scd4x
+    temperature_offset: -5.6
     co2:
       name: "${room_title} CO2"
       state_topic: "esphome/${room_slug}/co2"
