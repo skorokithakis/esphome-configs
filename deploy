@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -ne 2 ]; then
+  echo "Usage: $0 <room> <config.yml>" >&2
+  echo "Available rooms: livingroom, office, bedroom" >&2
+  exit 1
+fi
+
+room_raw="$1"
+config_path="$2"
+
+case "$room_raw" in
+  livingroom)
+    room_slug="living-room"
+    room_title="Living Room"
+    ;;
+  office)
+    room_slug="office"
+    room_title="Office"
+    ;;
+  bedroom)
+    room_slug="bedroom"
+    room_title="Bedroom"
+    ;;
+  *)
+    echo "Unknown room: $room_raw" >&2
+    echo "Available rooms: livingroom, office, bedroom" >&2
+    exit 1
+    ;;
+esac
+
+esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path"
