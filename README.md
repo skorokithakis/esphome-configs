@@ -10,7 +10,7 @@ Both use Wi-Fi secrets from `secrets.yaml`, Home Assistant API, OTA, and a fallb
 ## Deploy (terse)
 
 ```bash
-./deploy <room> <config.yml>
+./deploy <room> <config.yml> [esphome args...]
 ```
 
 Rooms: `livingroom`, `office`, `bedroom`. Example:

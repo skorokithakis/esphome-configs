@@ -1,14 +1,15 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 2 ]; then
-  echo "Usage: $0 <room> <config.yml>" >&2
+if [ "$#" -lt 2 ]; then
+  echo "Usage: $0 <room> <config.yml> [esphome args...]" >&2
   echo "Available rooms: livingroom, office, bedroom" >&2
   exit 1
 fi
 
 room_raw="$1"
 config_path="$2"
+shift 2
 
 case "$room_raw" in
   livingroom)
@@ -30,4 +31,4 @@ case "$room_raw" in
     ;;
 esac
 
-esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path"
+esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path" "$@"
