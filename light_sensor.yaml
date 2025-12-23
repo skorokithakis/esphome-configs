@@ -33,7 +33,7 @@ sensor:
   - platform: adc
     pin: A0
     name: "${room_title} Illuminance"
-    state_topic: "esphome/${room_slug}/illuminance"
+    state_topic: "zigbee2mqtt/sensors/${room_slug}/illuminance"
     update_interval: 1s
     unit_of_measurement: "%"
     accuracy_decimals: 0

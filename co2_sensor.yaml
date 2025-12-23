@@ -40,12 +40,12 @@ sensor:
     temperature_offset: -5.6
     co2:
       name: "${room_title} CO2"
-      state_topic: "esphome/${room_slug}/co2"
+      state_topic: "zigbee2mqtt/sensors/${room_slug}/co2"
     temperature:
       name: "${room_title} Temperature"
-      state_topic: "esphome/${room_slug}/temperature"
+      state_topic: "zigbee2mqtt/sensors/${room_slug}/temperature"
     humidity:
       name: "${room_title} Humidity"
-      state_topic: "esphome/${room_slug}/humidity"
+      state_topic: "zigbee2mqtt/sensors/${room_slug}/humidity"
 
 captive_portal:
