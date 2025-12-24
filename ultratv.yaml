@@ -1,0 +1,154 @@
+esphome:
+  name: geekmagic
+  friendly_name: Mini Display TV
+
+esp8266:
+  board: esp01_1m
+
+# Enable logging
+logger:
+
+web_server:
+  port: 80
+
+ota:
+  - platform: esphome
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+  min_auth_mode: WPA2
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Mini-Display-Tv"
+    password: "12345678"
+
+mqtt:
+  broker: !secret mqtt_hostname
+  on_json_message:
+    - topic: zigbee2mqtt/sensors/office/outdoors_temperature
+      then:
+        - lambda: |-
+            id(outdoor_temp).publish_state(x["temperature"]);
+            id(outdoor_humidity).publish_state(x["humidity"]);
+
+captive_portal:
+
+spi:
+  clk_pin: GPIO14
+  mosi_pin: GPIO13
+  interface: hardware
+  id: spihwd
+
+# status_led:
+#   pin: GPIO2
+
+output:
+  - platform: esp8266_pwm
+    pin: GPIO05
+    frequency: 200 Hz
+    inverted: true
+    id: backlight_pwm
+
+light:
+  - platform: monochromatic
+    output: backlight_pwm
+    name: "Backlight"
+    id: backlight
+    restore_mode: RESTORE_AND_ON
+
+font:
+  - file: "gfonts://Bebas+Neue"
+    id: font_time
+    size: 135
+
+  - file: "gfonts://Exo+2"
+    id: font_info
+    size: 16
+
+display:
+  - platform: mipi_spi
+    model: st7789v
+    spi_id: spihwd
+    dimensions:
+      height: 240
+      width: 240
+      offset_height: 0
+      offset_width: 0
+    invert_colors: true
+    dc_pin: GPIO00
+    reset_pin: GPIO02
+    #backlight_pin: GPIO25
+    color_depth: 8
+    update_interval: 1s
+    id: disp
+    spi_mode: mode3
+    lambda: |-
+      it.fill(Color::BLACK);
+
+      Color hour_color = Color(255, 80, 80);
+      Color minute_color = Color(255, 255, 255);
+      Color info_color = Color(230, 180, 150);
+
+      auto time = id(current_time).now();
+      if (time.is_valid()) {
+        it.strftime(5, 10, id(font_time), hour_color, "%H", time);
+        it.strftime(235, 75, id(font_time), minute_color, TextAlign::TOP_RIGHT, "%M", time);
+        it.strftime(235, 0, id(font_info), info_color, TextAlign::TOP_RIGHT, "%a %d/%m", time);
+      } else {
+        it.printf(5, 10, id(font_time), hour_color, "NA");
+        it.printf(235, 75, id(font_time), minute_color, TextAlign::TOP_RIGHT, "NA");
+      }
+
+      // Bottom left: outdoor temp/humidity and CO2
+      it.printf(5, 222, id(font_info), info_color, "%.1f°C %.0f%%  %.0f ppm", id(outdoor_temp).state, id(outdoor_humidity).state, id(bedroom_co2).state);
+
+sensor:
+  - platform: mqtt_subscribe
+    name: "Bedroom CO2"
+    id: bedroom_co2
+    topic: zigbee2mqtt/sensors/bedroom/co2
+
+  - platform: template
+    name: "Outdoor Temperature"
+    id: outdoor_temp
+    unit_of_measurement: "°C"
+
+  - platform: template
+    name: "Outdoor Humidity"
+    id: outdoor_humidity
+    unit_of_measurement: "%"
+
+time:
+  - platform: sntp
+    id: current_time
+    timezone: Europe/Athens
+    servers:
+      - 0.pool.ntp.org
+      - 1.pool.ntp.org
+      - 2.pool.ntp.org
+
+interval:
+  - interval: 1min
+    then:
+      - lambda: |-
+          auto time = id(current_time).now();
+          if (!time.is_valid()) return;
+
+          // Calculate minutes since midnight.
+          int minutes = time.hour * 60 + time.minute;
+
+          // Peak brightness (100%) at 14:00 (840 minutes), minimum (1%) at 00:00.
+          // 0-840 min: brightness increases from 1% to 100%
+          // 840-1440 min: brightness decreases from 100% to 1%
+          float brightness;
+          if (minutes <= 840) {
+            brightness = 0.01 + 0.99 * minutes / 840.0;
+          } else {
+            brightness = 1.0 - 0.99 * (minutes - 840) / 600.0;
+          }
+
+          auto call = id(backlight).turn_on();
+          call.set_brightness(brightness);
+          call.perform();
