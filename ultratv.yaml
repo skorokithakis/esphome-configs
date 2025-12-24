@@ -64,7 +64,7 @@ light:
 font:
   - file: "gfonts://Bebas+Neue"
     id: font_time
-    size: 135
+    size: 137
 
   - file: "gfonts://Exo+2"
     id: font_info
@@ -90,26 +90,82 @@ display:
     lambda: |-
       it.fill(Color::BLACK);
 
-      Color hour_color = Color(255, 80, 80);
-      Color minute_color = Color(255, 255, 255);
-      Color info_color = Color(230, 180, 150);
+      Color red = Color(255, 80, 80);
+      Color white = Color(255, 255, 255);
+      int bx, by, bw, bh;
 
       auto time = id(current_time).now();
       if (time.is_valid()) {
-        it.strftime(5, 10, id(font_time), hour_color, "%H", time);
-        it.strftime(235, 75, id(font_time), minute_color, TextAlign::TOP_RIGHT, "%M", time);
-        it.strftime(235, 0, id(font_info), info_color, TextAlign::TOP_RIGHT, "%a %d/%m", time);
+        it.strftime(5, 10, id(font_time), red, "%H", time);
+        it.strftime(235, 75, id(font_time), white, TextAlign::TOP_RIGHT, "%M", time);
+
+        // Date: dayname(red) day(white)/(red)month(white), right-aligned.
+        int pos = 235;
+
+        char month_str[4];
+        sprintf(month_str, "%02d", time.month);
+        it.get_text_bounds(0, 0, month_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        pos -= bw;
+        it.print(pos, 0, id(font_info), white, month_str);
+
+        it.get_text_bounds(0, 0, "/", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        pos -= bw;
+        it.print(pos, 0, id(font_info), white, "/");
+
+        char day_str[4];
+        sprintf(day_str, "%02d", time.day_of_month);
+        it.get_text_bounds(0, 0, day_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        pos -= bw;
+        it.print(pos, 0, id(font_info), white, day_str);
+
+        it.get_text_bounds(0, 0, " ", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        pos -= bw;
+
+        const char* daynames[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+        const char* dayname = daynames[time.day_of_week - 1];
+        it.print(pos, 0, id(font_info), white, TextAlign::TOP_RIGHT, dayname);
       } else {
-        it.printf(5, 10, id(font_time), hour_color, "NA");
-        it.printf(235, 75, id(font_time), minute_color, TextAlign::TOP_RIGHT, "NA");
+        it.printf(5, 10, id(font_time), red, "NA");
+        it.printf(235, 75, id(font_time), white, TextAlign::TOP_RIGHT, "NA");
       }
 
-      // Bottom: outdoor temp on left, indoor humidity and CO2 on right
+      // Bottom: outdoor temp on left, indoor humidity and CO2 on right.
       float temp = isnan(id(outdoor_temp).state) ? 0 : id(outdoor_temp).state;
       float humidity = isnan(id(indoor_humidity).state) ? 0 : id(indoor_humidity).state;
       float co2 = isnan(id(bedroom_co2).state) ? 0 : id(bedroom_co2).state;
-      it.printf(5, 214, id(font_info), info_color, "%.1f°C", temp);
-      it.printf(235, 214, id(font_info), info_color, TextAlign::TOP_RIGHT, "%.0f%% %.1fppt", humidity, co2 / 1000);
+
+      // Temperature: number(white) + °C(red).
+      char temp_num[8];
+      sprintf(temp_num, "%.1f", temp);
+      it.print(5, 214, id(font_info), white, temp_num);
+      it.get_text_bounds(0, 0, temp_num, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      it.print(5 + bw, 214, id(font_info), red, "°C");
+
+      // Right side: humidity(white) %(red) space co2(white) ppt(red).
+      int rpos = 235;
+
+      it.get_text_bounds(0, 0, "ppt", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      rpos -= bw;
+      it.print(rpos, 214, id(font_info), red, "ppt");
+
+      char co2_str[8];
+      sprintf(co2_str, "%.1f", co2 / 1000);
+      it.get_text_bounds(0, 0, co2_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      rpos -= bw;
+      it.print(rpos, 214, id(font_info), white, co2_str);
+
+      it.get_text_bounds(0, 0, " ", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      rpos -= bw;
+
+      it.get_text_bounds(0, 0, "%", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      rpos -= bw;
+      it.print(rpos, 214, id(font_info), red, "%");
+
+      char hum_str[8];
+      sprintf(hum_str, "%.0f", humidity);
+      it.get_text_bounds(0, 0, hum_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      rpos -= bw;
+      it.print(rpos, 214, id(font_info), white, hum_str);
 
 sensor:
   - platform: mqtt_subscribe
@@ -146,14 +202,12 @@ interval:
           // Calculate minutes since midnight.
           int minutes = time.hour * 60 + time.minute;
 
-          // Peak brightness (100%) at 14:00 (840 minutes), minimum (15%) at 00:00.
-          // 0-840 min: brightness increases from 15% to 100%
-          // 840-1440 min: brightness decreases from 100% to 15%
+          // Peak brightness (60%) at 14:00 (840 minutes), minimum (15%) at 00:00.
           float brightness;
           if (minutes <= 840) {
-            brightness = 0.15 + 0.60 * minutes / 840.0;
+            brightness = 0.15 + 0.45 * minutes / 840.0;
           } else {
-            brightness = 1.0 - 0.60 * (minutes - 840) / 600.0;
+            brightness = 0.60 - 0.45 * (minutes - 840) / 600.0;
           }
 
           auto call = id(backlight).turn_on();
