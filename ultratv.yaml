@@ -31,7 +31,10 @@ mqtt:
       then:
         - lambda: |-
             id(outdoor_temp).publish_state(x["temperature"]);
-            id(outdoor_humidity).publish_state(x["humidity"]);
+    - topic: zigbee2mqtt/sensors/office/closet_temperature
+      then:
+        - lambda: |-
+            id(indoor_humidity).publish_state(x["humidity"]);
 
 captive_portal:
 
@@ -101,8 +104,12 @@ display:
         it.printf(235, 75, id(font_time), minute_color, TextAlign::TOP_RIGHT, "NA");
       }
 
-      // Bottom left: outdoor temp/humidity and CO2
-      it.printf(5, 214, id(font_info), info_color, "%.1f°C %.0f%%  %.0fppm", id(outdoor_temp).state, id(outdoor_humidity).state, id(bedroom_co2).state);
+      // Bottom: outdoor temp on left, indoor humidity and CO2 on right
+      float temp = isnan(id(outdoor_temp).state) ? 0 : id(outdoor_temp).state;
+      float humidity = isnan(id(indoor_humidity).state) ? 0 : id(indoor_humidity).state;
+      float co2 = isnan(id(bedroom_co2).state) ? 0 : id(bedroom_co2).state;
+      it.printf(5, 214, id(font_info), info_color, "%.1f°C", temp);
+      it.printf(235, 214, id(font_info), info_color, TextAlign::TOP_RIGHT, "%.0f%% %.1fppt", humidity, co2 / 1000);
 
 sensor:
   - platform: mqtt_subscribe
@@ -116,8 +123,8 @@ sensor:
     unit_of_measurement: "°C"
 
   - platform: template
-    name: "Outdoor Humidity"
-    id: outdoor_humidity
+    name: "Indoor Humidity"
+    id: indoor_humidity
     unit_of_measurement: "%"
 
 time:
@@ -144,9 +151,9 @@ interval:
           // 840-1440 min: brightness decreases from 100% to 15%
           float brightness;
           if (minutes <= 840) {
-            brightness = 0.15 + 0.85 * minutes / 840.0;
+            brightness = 0.15 + 0.60 * minutes / 840.0;
           } else {
-            brightness = 1.0 - 0.85 * (minutes - 840) / 600.0;
+            brightness = 1.0 - 0.60 * (minutes - 840) / 600.0;
           }
 
           auto call = id(backlight).turn_on();
