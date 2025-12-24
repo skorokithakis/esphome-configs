@@ -61,10 +61,15 @@ light:
     id: backlight
     restore_mode: RESTORE_AND_ON
 
+image:
+  - file: "synthwave_bg.png"
+    id: background
+    type: RGB
+
 font:
   - file: "gfonts://Bebas+Neue"
     id: font_time
-    size: 137
+    size: 126
 
   - file: "gfonts://Exo+2"
     id: font_info
@@ -88,84 +93,66 @@ display:
     id: disp
     spi_mode: mode3
     lambda: |-
-      it.fill(Color::BLACK);
+      it.image(0, 0, id(background));
 
       Color red = Color(255, 80, 80);
       Color white = Color(255, 255, 255);
+      const int left_x = 10;
+      const int date_day_y = 10;
+      const int date_date_y = 40;
+      const int temp_y = 105;
+      const int humidity_y = 170;
+      const int co2_y = 200;
       int bx, by, bw, bh;
 
+      // Time on the right, hardcoded positions.
       auto time = id(current_time).now();
+      const int time_x = 230;
+      const int hour_y = 150;
+      const int minute_y = 100;
+      it.strftime(time_x, hour_y, id(font_time), white, TextAlign::BOTTOM_RIGHT, "%H", time);
+      it.strftime(time_x, minute_y, id(font_time), red, TextAlign::TOP_RIGHT, "%M", time);
+
+      // Left side: date, temp, humidity/co2 stacked vertically.
+      // Date at top.
       if (time.is_valid()) {
-        it.strftime(5, 10, id(font_time), red, "%H", time);
-        it.strftime(235, 75, id(font_time), white, TextAlign::TOP_RIGHT, "%M", time);
-
-        // Date: dayname(red) day(white)/(red)month(white), right-aligned.
-        int pos = 235;
-
-        char month_str[4];
-        sprintf(month_str, "%02d", time.month);
-        it.get_text_bounds(0, 0, month_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-        pos -= bw;
-        it.print(pos, 0, id(font_info), white, month_str);
-
-        it.get_text_bounds(0, 0, "/", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-        pos -= bw;
-        it.print(pos, 0, id(font_info), white, "/");
-
-        char day_str[4];
-        sprintf(day_str, "%02d", time.day_of_month);
-        it.get_text_bounds(0, 0, day_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-        pos -= bw;
-        it.print(pos, 0, id(font_info), white, day_str);
-
-        it.get_text_bounds(0, 0, " ", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-        pos -= bw;
-
-        const char* daynames[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"};
+        const char* daynames[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
         const char* dayname = daynames[time.day_of_week - 1];
-        it.print(pos, 0, id(font_info), white, TextAlign::TOP_RIGHT, dayname);
-      } else {
-        it.printf(5, 10, id(font_time), red, "NA");
-        it.printf(235, 75, id(font_time), white, TextAlign::TOP_RIGHT, "NA");
+        it.print(left_x, date_day_y, id(font_info), red, dayname);
+        char date_str[8];
+        sprintf(date_str, "%02d/%02d", time.day_of_month, time.month);
+        it.print(left_x, date_date_y, id(font_info), white, date_str);
       }
 
-      // Bottom: outdoor temp on left, indoor humidity and CO2 on right.
       float temp = isnan(id(outdoor_temp).state) ? 0 : id(outdoor_temp).state;
       float humidity = isnan(id(indoor_humidity).state) ? 0 : id(indoor_humidity).state;
       float co2 = isnan(id(bedroom_co2).state) ? 0 : id(bedroom_co2).state;
 
-      // Temperature: number(white) + °C(red).
+      // Temperature in the middle.
       char temp_num[8];
       sprintf(temp_num, "%.1f", temp);
-      it.print(5, 214, id(font_info), white, temp_num);
+      int pos = left_x;
+      it.print(pos, temp_y, id(font_info), white, temp_num);
       it.get_text_bounds(0, 0, temp_num, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      it.print(5 + bw, 214, id(font_info), red, "°C");
+      pos += bw;
+      it.print(pos, temp_y, id(font_info), red, " C");
 
-      // Right side: humidity(white) %(red) space co2(white) ppt(red).
-      int rpos = 235;
-
-      it.get_text_bounds(0, 0, "ppt", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      rpos -= bw;
-      it.print(rpos, 214, id(font_info), red, "ppt");
+      // Humidity and CO2 at bottom.
+      pos = left_x;
+      char hum_str[8];
+      sprintf(hum_str, "%.0f", humidity);
+      it.print(pos, humidity_y, id(font_info), white, hum_str);
+      it.get_text_bounds(0, 0, hum_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+      pos += bw;
+      it.print(pos, humidity_y, id(font_info), red, "%");
 
       char co2_str[8];
       sprintf(co2_str, "%.1f", co2 / 1000);
+      pos = left_x;
+      it.print(pos, co2_y, id(font_info), white, co2_str);
       it.get_text_bounds(0, 0, co2_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      rpos -= bw;
-      it.print(rpos, 214, id(font_info), white, co2_str);
-
-      it.get_text_bounds(0, 0, " ", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      rpos -= bw;
-
-      it.get_text_bounds(0, 0, "%", id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      rpos -= bw;
-      it.print(rpos, 214, id(font_info), red, "%");
-
-      char hum_str[8];
-      sprintf(hum_str, "%.0f", humidity);
-      it.get_text_bounds(0, 0, hum_str, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
-      rpos -= bw;
-      it.print(rpos, 214, id(font_info), white, hum_str);
+      pos += bw;
+      it.print(pos, co2_y, id(font_info), red, "ppt");
 
 sensor:
   - platform: mqtt_subscribe
