@@ -65,7 +65,7 @@ font:
 
   - file: "gfonts://Exo+2"
     id: font_info
-    size: 16
+    size: 22
 
 display:
   - platform: mipi_spi
@@ -102,7 +102,7 @@ display:
       }
 
       // Bottom left: outdoor temp/humidity and CO2
-      it.printf(5, 222, id(font_info), info_color, "%.1f°C %.0f%%  %.0f ppm", id(outdoor_temp).state, id(outdoor_humidity).state, id(bedroom_co2).state);
+      it.printf(5, 214, id(font_info), info_color, "%.1f°C %.0f%%  %.0fppm", id(outdoor_temp).state, id(outdoor_humidity).state, id(bedroom_co2).state);
 
 sensor:
   - platform: mqtt_subscribe
@@ -139,14 +139,14 @@ interval:
           // Calculate minutes since midnight.
           int minutes = time.hour * 60 + time.minute;
 
-          // Peak brightness (100%) at 14:00 (840 minutes), minimum (1%) at 00:00.
-          // 0-840 min: brightness increases from 1% to 100%
-          // 840-1440 min: brightness decreases from 100% to 1%
+          // Peak brightness (100%) at 14:00 (840 minutes), minimum (15%) at 00:00.
+          // 0-840 min: brightness increases from 15% to 100%
+          // 840-1440 min: brightness decreases from 100% to 15%
           float brightness;
           if (minutes <= 840) {
-            brightness = 0.01 + 0.99 * minutes / 840.0;
+            brightness = 0.15 + 0.85 * minutes / 840.0;
           } else {
-            brightness = 1.0 - 0.99 * (minutes - 840) / 600.0;
+            brightness = 1.0 - 0.85 * (minutes - 840) / 600.0;
           }
 
           auto call = id(backlight).turn_on();
