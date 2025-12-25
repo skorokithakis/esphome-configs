@@ -186,15 +186,18 @@ interval:
           auto time = id(current_time).now();
           if (!time.is_valid()) return;
 
+          const float kMinBrightness = 0.05f;
+          const float kMaxBrightness = 0.60f;
+
           // Calculate minutes since midnight.
           int minutes = time.hour * 60 + time.minute;
 
           // Peak brightness (60%) at 14:00 (840 minutes), minimum (15%) at 00:00.
           float brightness;
           if (minutes <= 840) {
-            brightness = 0.15 + 0.45 * minutes / 840.0;
+            brightness = kMinBrightness + (kMaxBrightness - kMinBrightness) * minutes / 840.0;
           } else {
-            brightness = 0.60 - 0.45 * (minutes - 840) / 600.0;
+            brightness = kMaxBrightness - (kMaxBrightness - kMinBrightness) * (minutes - 840) / 600.0;
           }
 
           auto call = id(backlight).turn_on();
