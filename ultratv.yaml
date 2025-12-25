@@ -188,27 +188,26 @@ interval:
 
           const float kMinBrightness = 0.06f;
           const float kMaxBrightness = 0.60f;
-          const float kStepPerMinute = 0.01f;
-          const int kMaxAtMinutes = 14 * 60;
-          const int kRampMinutes = static_cast<int>((kMaxBrightness - kMinBrightness) / kStepPerMinute);
-          const int kRampUpStart = kMaxAtMinutes - kRampMinutes;
-          const int kRampDownEnd = 24 * 60;
-          const int kRampDownStart = kRampDownEnd - kRampMinutes;
+          const int kPeakMinutes = 13 * 60;
+          const int kDayMinutes = 24 * 60;
+          const float kRampRatePerMinute = 0.01f;
 
           // Calculate minutes since midnight.
           int minutes = time.hour * 60 + time.minute;
 
-          float brightness = kMinBrightness;
-          if (minutes < kRampUpStart) {
+          // Peak at 13:00, minimum at 00:00, ramping at 1% per minute.
+          float brightness;
+          const float ramp_minutes = (kMaxBrightness - kMinBrightness) / kRampRatePerMinute;
+          const float ramp_up_start = kPeakMinutes - ramp_minutes;
+          const float ramp_down_start = kDayMinutes - ramp_minutes;
+          if (minutes < ramp_up_start) {
             brightness = kMinBrightness;
-          } else if (minutes < kMaxAtMinutes) {
-            brightness = kMinBrightness + kStepPerMinute * (minutes - kRampUpStart);
-          } else if (minutes < kRampDownStart) {
+          } else if (minutes <= kPeakMinutes) {
+            brightness = kMinBrightness + (minutes - ramp_up_start) * kRampRatePerMinute;
+          } else if (minutes < ramp_down_start) {
             brightness = kMaxBrightness;
-          } else if (minutes < kRampDownEnd) {
-            brightness = kMaxBrightness - kStepPerMinute * (minutes - kRampDownStart);
           } else {
-            brightness = kMinBrightness;
+            brightness = kMaxBrightness - (minutes - ramp_down_start) * kRampRatePerMinute;
           }
 
           auto call = id(backlight).turn_on();
