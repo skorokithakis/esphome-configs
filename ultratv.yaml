@@ -175,9 +175,9 @@ time:
     id: current_time
     timezone: Europe/Athens
     servers:
-      - 0.pool.ntp.org
-      - 1.pool.ntp.org
-      - 2.pool.ntp.org
+      - 0.gr.pool.ntp.org
+      - 1.gr.pool.ntp.org
+      - 2.gr.pool.ntp.org
 
 interval:
   - interval: 1min
