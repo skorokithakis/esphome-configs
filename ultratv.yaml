@@ -192,8 +192,8 @@ interval:
           const int kMaxAtMinutes = 14 * 60;
           const int kRampMinutes = static_cast<int>((kMaxBrightness - kMinBrightness) / kStepPerMinute);
           const int kRampUpStart = kMaxAtMinutes - kRampMinutes;
-          const int kHoldMaxUntil = 23 * 60;
-          const int kRampDownEnd = kHoldMaxUntil + kRampMinutes;
+          const int kRampDownEnd = 24 * 60;
+          const int kRampDownStart = kRampDownEnd - kRampMinutes;
 
           // Calculate minutes since midnight.
           int minutes = time.hour * 60 + time.minute;
@@ -203,10 +203,10 @@ interval:
             brightness = kMinBrightness;
           } else if (minutes < kMaxAtMinutes) {
             brightness = kMinBrightness + kStepPerMinute * (minutes - kRampUpStart);
-          } else if (minutes < kHoldMaxUntil) {
+          } else if (minutes < kRampDownStart) {
             brightness = kMaxBrightness;
           } else if (minutes < kRampDownEnd) {
-            brightness = kMaxBrightness - kStepPerMinute * (minutes - kHoldMaxUntil);
+            brightness = kMaxBrightness - kStepPerMinute * (minutes - kRampDownStart);
           } else {
             brightness = kMinBrightness;
           }
