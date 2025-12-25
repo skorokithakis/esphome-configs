@@ -135,7 +135,7 @@ display:
       it.print(pos, temp_y, id(font_info), white, temp_num);
       it.get_text_bounds(0, 0, temp_num, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
       pos += bw;
-      it.print(pos, temp_y, id(font_info), red, " C");
+      it.print(pos, temp_y, id(font_info), red, " °C");
 
       // Humidity and CO2 at bottom.
       pos = left_x;
