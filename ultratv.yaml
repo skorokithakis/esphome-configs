@@ -186,7 +186,7 @@ interval:
           auto time = id(current_time).now();
           if (!time.is_valid()) return;
 
-          const float kMinBrightness = 0.06f;
+          const float kMinBrightness = 0.10f;
           const float kMaxBrightness = 0.60f;
           const int kPeakMinutes = 13 * 60;
           const int kDayMinutes = 24 * 60;
