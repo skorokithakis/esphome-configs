@@ -1,5 +1,5 @@
 esphome:
-  name: geekmagic
+  name: bedroom-bedtime
   friendly_name: Bedtime
 
 esp8266:
@@ -37,6 +37,11 @@ mqtt:
             id(indoor_humidity).publish_state(x["humidity"]);
 
 captive_portal:
+
+globals:
+  - id: last_brightness_pct
+    type: int
+    initial_value: "-1"
 
 spi:
   clk_pin: GPIO14
@@ -155,6 +160,19 @@ display:
       it.print(pos, co2_y, id(font_info), red, "ppt");
 
 sensor:
+  - platform: adc
+    pin: A0
+    name: "Ambient Light"
+    id: ambient_light
+    update_interval: 1s
+    unit_of_measurement: "mV"
+    accuracy_decimals: 0
+    filters:
+      - multiply: 1000
+      - sliding_window_moving_average:
+          window_size: 10
+          send_every: 1
+
   - platform: mqtt_subscribe
     name: "Bedroom CO2"
     id: bedroom_co2
@@ -180,36 +198,27 @@ time:
       - 2.gr.pool.ntp.org
 
 interval:
-  - interval: 1min
+  - interval: 1s
     then:
       - lambda: |-
-          auto time = id(current_time).now();
-          if (!time.is_valid()) return;
+          float light = id(ambient_light).state;
+          if (isnan(light)) return;
 
-          const float kMinBrightness = 0.09f;
-          const float kMaxBrightness = 0.60f;
-          const int kPeakMinutes = 13 * 60;
-          const int kDayMinutes = 24 * 60;
-          const float kRampRatePerMinute = 0.01f;
+          const int kMinBrightnessPct = 9;
+          const int kMaxBrightnessPct = 60;
+          const float kLightMinMv = 50;
+          const float kLightMaxMv = 250;
 
-          // Calculate minutes since midnight.
-          int minutes = time.hour * 60 + time.minute;
+          float normalized = (light - kLightMinMv) / (kLightMaxMv - kLightMinMv);
+          if (normalized < 0) normalized = 0;
+          if (normalized > 1) normalized = 1;
+          int brightness_pct = kMinBrightnessPct + normalized * (kMaxBrightnessPct - kMinBrightnessPct);
 
-          // Peak at 13:00, minimum at 00:00, ramping at 1% per minute.
-          float brightness;
-          const float ramp_minutes = (kMaxBrightness - kMinBrightness) / kRampRatePerMinute;
-          const float ramp_up_start = kPeakMinutes - ramp_minutes;
-          const float ramp_down_start = kDayMinutes - ramp_minutes;
-          if (minutes < ramp_up_start) {
-            brightness = kMinBrightness;
-          } else if (minutes <= kPeakMinutes) {
-            brightness = kMinBrightness + (minutes - ramp_up_start) * kRampRatePerMinute;
-          } else if (minutes < ramp_down_start) {
-            brightness = kMaxBrightness;
-          } else {
-            brightness = kMaxBrightness - (minutes - ramp_down_start) * kRampRatePerMinute;
-          }
+          ESP_LOGI("backlight", "Light: %.0f mV, Brightness: %d%%", light, brightness_pct);
+
+          if (brightness_pct == id(last_brightness_pct)) return;
+          id(last_brightness_pct) = brightness_pct;
 
           auto call = id(backlight).turn_on();
-          call.set_brightness(brightness);
+          call.set_brightness(brightness_pct / 100.0f);
           call.perform();
