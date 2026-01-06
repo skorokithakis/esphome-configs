@@ -206,8 +206,8 @@ interval:
 
           const int kMinBrightnessPct = 9;
           const int kMaxBrightnessPct = 60;
-          const float kLightMinMv = 50;
-          const float kLightMaxMv = 250;
+          const float kLightMinMv = 5;
+          const float kLightMaxMv = 20;
 
           float normalized = (light - kLightMinMv) / (kLightMaxMv - kLightMinMv);
           if (normalized < 0) normalized = 0;
