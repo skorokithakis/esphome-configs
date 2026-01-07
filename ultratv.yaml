@@ -204,7 +204,7 @@ interval:
           float light = id(ambient_light).state;
           if (isnan(light)) return;
 
-          const int kMinBrightnessPct = 9;
+          const int kMinBrightnessPct = 6;
           const int kMaxBrightnessPct = 60;
           const float kLightMinMv = 5;
           const float kLightMaxMv = 20;
