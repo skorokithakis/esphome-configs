@@ -213,7 +213,10 @@ interval:
           float normalized = (light - kLightMinMv) / (kLightMaxMv - kLightMinMv);
           if (normalized < 0) normalized = 0;
           if (normalized > 1) normalized = 1;
-          int brightness_pct = kMinBrightnessPct + normalized * (kMaxBrightnessPct - kMinBrightnessPct);
+
+          const float kGamma = 0.6;
+          float curved = pow(normalized, kGamma);
+          int brightness_pct = kMinBrightnessPct + curved * (kMaxBrightnessPct - kMinBrightnessPct);
 
           ESP_LOGI("backlight", "Light: %.0f mV, Brightness: %d%%", light, brightness_pct);
 
