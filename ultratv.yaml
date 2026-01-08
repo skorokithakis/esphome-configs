@@ -206,7 +206,7 @@ interval:
           if (isnan(light)) return;
 
           const int kMinBrightnessPct = 6;
-          const int kMaxBrightnessPct = 60;
+          const int kMaxBrightnessPct = 50;
           const float kLightMinMv = 5;
           const float kLightMaxMv = 1000;
 
