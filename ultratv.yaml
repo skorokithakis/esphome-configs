@@ -65,6 +65,7 @@ light:
     name: "Backlight"
     id: backlight
     restore_mode: RESTORE_AND_ON
+    default_transition_length: 0s
 
 image:
   - file: "synthwave_bg.png"
@@ -207,7 +208,7 @@ interval:
           const int kMinBrightnessPct = 6;
           const int kMaxBrightnessPct = 60;
           const float kLightMinMv = 5;
-          const float kLightMaxMv = 20;
+          const float kLightMaxMv = 1000;
 
           float normalized = (light - kLightMinMv) / (kLightMaxMv - kLightMinMv);
           if (normalized < 0) normalized = 0;
