@@ -18,11 +18,11 @@ display:
     reset_pin: GPIO02
     #backlight_pin: GPIO25
     color_depth: 8
-    update_interval: 1s
+    update_interval: 3s
     id: disp
     spi_mode: mode3
     lambda: |-
-      it.image(0, 0, id(background));
+      it.image(0, 240 - id(background)->get_height(), id(background));
 
       Color red = Color(255, 80, 80);
       Color white = Color(255, 255, 255);
