@@ -1,85 +1,8 @@
-esphome:
-  name: bedroom-bedtime
-  friendly_name: Bedtime
+substitutions:
+  device_name: bedroom-bedtime
 
-esp8266:
-  board: d1_mini
-
-# Enable logging
-logger:
-
-web_server:
-  port: 80
-
-ota:
-  - platform: esphome
-
-wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
-  min_auth_mode: WPA2
-
-  # Enable fallback hotspot (captive portal) in case wifi connection fails
-  ap:
-    ssid: "Bedtime"
-    password: "12345678"
-
-mqtt:
-  broker: !secret mqtt_hostname
-  on_json_message:
-    - topic: zigbee2mqtt/sensors/office/outdoors_temperature
-      then:
-        - lambda: |-
-            id(outdoor_temp).publish_state(x["temperature"]);
-    - topic: zigbee2mqtt/sensors/office/closet_temperature
-      then:
-        - lambda: |-
-            id(indoor_humidity).publish_state(x["humidity"]);
-
-captive_portal:
-
-globals:
-  - id: last_brightness_pct
-    type: int
-    initial_value: "-1"
-
-spi:
-  clk_pin: GPIO14
-  mosi_pin: GPIO13
-  interface: hardware
-  id: spihwd
-
-# status_led:
-#   pin: GPIO2
-
-output:
-  - platform: esp8266_pwm
-    pin: GPIO05
-    frequency: 200 Hz
-    inverted: true
-    id: backlight_pwm
-
-light:
-  - platform: monochromatic
-    output: backlight_pwm
-    name: "Backlight"
-    id: backlight
-    restore_mode: RESTORE_AND_ON
-    default_transition_length: 0s
-
-image:
-  - file: "synthwave_bg.png"
-    id: background
-    type: RGB
-
-font:
-  - file: "gfonts://Bebas+Neue"
-    id: font_time
-    size: 126
-
-  - file: "gfonts://Exo+2"
-    id: font_info
-    size: 22
+packages:
+  bedtime_common: !include bedtime.common.yaml
 
 display:
   - platform: mipi_spi
@@ -160,20 +83,18 @@ display:
       pos += bw;
       it.print(pos, co2_y, id(font_info), red, "ppt");
 
-sensor:
-  - platform: adc
-    pin: A0
-    name: "Ambient Light"
-    id: ambient_light
-    update_interval: 1s
-    unit_of_measurement: "mV"
-    accuracy_decimals: 0
-    filters:
-      - multiply: 1000
-      - sliding_window_moving_average:
-          window_size: 10
-          send_every: 1
+mqtt:
+  on_json_message:
+    - topic: zigbee2mqtt/sensors/office/outdoors_temperature
+      then:
+        - lambda: |-
+            id(outdoor_temp).publish_state(x["temperature"]);
+    - topic: zigbee2mqtt/sensors/office/closet_temperature
+      then:
+        - lambda: |-
+            id(indoor_humidity).publish_state(x["humidity"]);
 
+sensor:
   - platform: mqtt_subscribe
     name: "Bedroom CO2"
     id: bedroom_co2
@@ -188,41 +109,3 @@ sensor:
     name: "Indoor Humidity"
     id: indoor_humidity
     unit_of_measurement: "%"
-
-time:
-  - platform: sntp
-    id: current_time
-    timezone: Europe/Athens
-    servers:
-      - 0.gr.pool.ntp.org
-      - 1.gr.pool.ntp.org
-      - 2.gr.pool.ntp.org
-
-interval:
-  - interval: 1s
-    then:
-      - lambda: |-
-          float light = id(ambient_light).state;
-          if (isnan(light)) return;
-
-          const int kMinBrightnessPct = 6;
-          const int kMaxBrightnessPct = 50;
-          const float kLightMinMv = 5;
-          const float kLightMaxMv = 1000;
-
-          float normalized = (light - kLightMinMv) / (kLightMaxMv - kLightMinMv);
-          if (normalized < 0) normalized = 0;
-          if (normalized > 1) normalized = 1;
-
-          const float kGamma = 0.6;
-          float curved = pow(normalized, kGamma);
-          int brightness_pct = kMinBrightnessPct + curved * (kMaxBrightnessPct - kMinBrightnessPct);
-
-          ESP_LOGI("backlight", "Light: %.0f mV, Brightness: %d%%", light, brightness_pct);
-
-          if (brightness_pct == id(last_brightness_pct)) return;
-          id(last_brightness_pct) = brightness_pct;
-
-          auto call = id(backlight).turn_on();
-          call.set_brightness(brightness_pct / 100.0f);
-          call.perform();

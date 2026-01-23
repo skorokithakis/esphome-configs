@@ -1,0 +1,92 @@
+substitutions:
+  device_name: filotas-bedtime
+
+packages:
+  bedtime_common: !include bedtime.common.yaml
+
+display:
+  - platform: mipi_spi
+    model: st7789v
+    spi_id: spihwd
+    dimensions:
+      height: 240
+      width: 240
+      offset_height: 0
+      offset_width: 0
+    invert_colors: true
+    dc_pin: GPIO00
+    reset_pin: GPIO02
+    #backlight_pin: GPIO25
+    color_depth: 8
+    update_interval: 1s
+    id: disp
+    spi_mode: mode3
+    lambda: |-
+      it.image(0, 0, id(background));
+
+      Color red = Color(255, 80, 80);
+      Color white = Color(255, 255, 255);
+      const int left_x = 10;
+      const int date_day_y = 10;
+      const int date_date_y = 40;
+      const int lights_y = 120;
+      int bx, by, bw, bh;
+
+      // Time on the right, hardcoded positions.
+      auto time = id(current_time).now();
+      const int time_x = 230;
+      const int hour_y = 150;
+      const int minute_y = 100;
+      it.strftime(time_x, hour_y, id(font_time), white, TextAlign::BOTTOM_RIGHT, "%H", time);
+      it.strftime(time_x, minute_y, id(font_time), red, TextAlign::TOP_RIGHT, "%M", time);
+
+      // Left side: date, temp, humidity/co2 stacked vertically.
+      // Date at top.
+      if (time.is_valid()) {
+        const char* daynames[] = {"Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"};
+        const char* dayname = daynames[time.day_of_week - 1];
+        it.print(left_x, date_day_y, id(font_info), red, dayname);
+        char date_str[8];
+        sprintf(date_str, "%02d/%02d", time.day_of_month, time.month);
+        it.print(left_x, date_date_y, id(font_info), white, date_str);
+      }
+
+      int pos = left_x;
+      auto draw_letter = [&](const char* label, bool is_on) -> void {
+        Color color = is_on ? red : white;
+        it.print(pos, lights_y, id(font_info), color, label);
+        it.get_text_bounds(0, 0, label, id(font_info), TextAlign::TOP_LEFT, &bx, &by, &bw, &bh);
+        pos += bw + 8;
+      };
+
+      draw_letter("K", id(living_left_on));
+      draw_letter("L", id(living_right_on));
+      draw_letter("H", id(hall_left_on));
+      draw_letter("T", id(hall_right_on));
+
+mqtt:
+  on_json_message:
+    - topic: zigbee2mqtt/Hall switch
+      then:
+        - lambda: |-
+            id(hall_left_on) = strcmp(x["state_left"].as<const char*>(), "ON") == 0;
+            id(hall_right_on) = strcmp(x["state_right"].as<const char*>(), "ON") == 0;
+    - topic: zigbee2mqtt/Living room switch
+      then:
+        - lambda: |-
+            id(living_left_on) = strcmp(x["state_left"].as<const char*>(), "ON") == 0;
+            id(living_right_on) = strcmp(x["state_right"].as<const char*>(), "ON") == 0;
+
+globals:
+  - id: hall_left_on
+    type: bool
+    initial_value: "false"
+  - id: hall_right_on
+    type: bool
+    initial_value: "false"
+  - id: living_left_on
+    type: bool
+    initial_value: "false"
+  - id: living_right_on
+    type: bool
+    initial_value: "false"
