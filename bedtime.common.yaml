@@ -6,6 +6,7 @@ esp8266:
   board: d1_mini
 
 logger:
+  level: INFO
 
 web_server:
   port: 80
@@ -76,7 +77,7 @@ sensor:
     pin: A0
     name: "Ambient Light"
     id: ambient_light
-    update_interval: 1s
+    update_interval: 3s
     unit_of_measurement: "mV"
     accuracy_decimals: 0
     filters:
@@ -95,7 +96,7 @@ time:
       - 2.gr.pool.ntp.org
 
 interval:
-  - interval: 1s
+  - interval: 5s
     then:
       - lambda: |-
           float light = id(ambient_light).state;
@@ -113,8 +114,6 @@ interval:
           const float kGamma = 0.6;
           float curved = pow(normalized, kGamma);
           int brightness_pct = kMinBrightnessPct + curved * (kMaxBrightnessPct - kMinBrightnessPct);
-
-          ESP_LOGI("backlight", "Light: %.0f mV, Brightness: %d%%", light, brightness_pct);
 
           if (brightness_pct == id(last_brightness_pct)) return;
           id(last_brightness_pct) = brightness_pct;
