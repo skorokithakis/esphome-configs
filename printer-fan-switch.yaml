@@ -1,0 +1,44 @@
+esphome:
+  name: printer-fan
+  friendly_name: Printer fan
+
+esp8266:
+  board: d1_mini
+
+logger:
+
+# Disable the native API since we're using MQTT instead.
+# Otherwise ESPHome complains about having neither or tries both.
+api:
+  reboot_timeout: 0s
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Printer Fan Fallback Hotspot"
+    password: !secret ap_password
+
+captive_portal:
+
+mqtt:
+  broker: !secret mqtt_hostname
+  discovery: false
+  topic_prefix: printer-fan
+
+output:
+  - platform: gpio
+    pin: D4
+    id: fan_output
+
+switch:
+  - platform: output
+    name: "Printer fan"
+    output: fan_output
+    restore_mode: ALWAYS_OFF
