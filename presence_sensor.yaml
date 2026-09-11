@@ -1,0 +1,206 @@
+esphome:
+  name: "presence-sensor-${room_slug}"
+
+esp32:
+  board: esp32-c3-devkitm-1
+  framework:
+    type: esp-idf
+
+logger:
+  # UART0 on the SuperMini only reaches the header pins and is not connected to
+  # the USB socket, so default logger output would never reach the USB cable.
+  # Move the console to the C3's native USB serial/JTAG peripheral instead.
+  hardware_uart: USB_SERIAL_JTAG
+
+ota:
+  - platform: esphome
+    password: ""
+
+wifi:
+  ssid: !secret wifi_ssid
+  password: !secret wifi_password
+
+  # Enable fallback hotspot (captive portal) in case wifi connection fails
+  ap:
+    ssid: "Presence Sensor Fallback Hotspot"
+    password: !secret ap_password
+
+captive_portal:
+
+mqtt:
+  broker: !secret mqtt_hostname
+  discovery: false
+  topic_prefix: presence-${room_slug}
+
+# The web server is the only tuning interface; there is no Home Assistant.
+# 2026.5.3 still defaults to v2, so pin v3 explicitly.
+web_server:
+  version: 3
+
+uart:
+  id: ld2410_uart
+  tx_pin: GPIO3
+  rx_pin: GPIO4
+  baud_rate: 256000
+  parity: NONE
+  stop_bits: 1
+
+ld2410:
+  id: ld2410_sensor
+  uart_id: ld2410_uart
+
+binary_sensor:
+  - platform: ld2410
+    has_target:
+      name: "${room_title} Occupancy"
+      state_topic: "zigbee2mqtt/sensors/${room_slug}/occupancy"
+    has_moving_target:
+      name: "${room_title} Moving Target"
+    has_still_target:
+      name: "${room_title} Still Target"
+
+sensor:
+  - platform: ld2410
+    # There is deliberately no `light` sensor and no `light_threshold` number.
+    # This module reports firmware 1.07.22082218 and carries no ambient light
+    # sensor, so both stay unavailable. The threshold would only gate the
+    # module's OUT pin, which this config never reads, because presence arrives
+    # over UART instead.
+    moving_distance:
+      name: "${room_title} Moving Distance"
+    # The per-gate energies further down only publish while engineering mode is
+    # on. These two overall energies publish always, so they are the cheap way
+    # to confirm the radar is alive without paying for the extra UART traffic.
+    moving_energy:
+      name: "${room_title} Moving Energy"
+    still_distance:
+      name: "${room_title} Still Distance"
+    still_energy:
+      name: "${room_title} Still Energy"
+    detection_distance:
+      name: "${room_title} Detection Distance"
+    g0:
+      move_energy:
+        name: "${room_title} Gate 0 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 0 Still Energy"
+    g1:
+      move_energy:
+        name: "${room_title} Gate 1 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 1 Still Energy"
+    g2:
+      move_energy:
+        name: "${room_title} Gate 2 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 2 Still Energy"
+    g3:
+      move_energy:
+        name: "${room_title} Gate 3 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 3 Still Energy"
+    g4:
+      move_energy:
+        name: "${room_title} Gate 4 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 4 Still Energy"
+    g5:
+      move_energy:
+        name: "${room_title} Gate 5 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 5 Still Energy"
+    g6:
+      move_energy:
+        name: "${room_title} Gate 6 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 6 Still Energy"
+    g7:
+      move_energy:
+        name: "${room_title} Gate 7 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 7 Still Energy"
+    g8:
+      move_energy:
+        name: "${room_title} Gate 8 Move Energy"
+      still_energy:
+        name: "${room_title} Gate 8 Still Energy"
+
+number:
+  - platform: ld2410
+    timeout:
+      name: "${room_title} Timeout"
+    max_move_distance_gate:
+      name: "${room_title} Max Move Distance Gate"
+    max_still_distance_gate:
+      name: "${room_title} Max Still Distance Gate"
+    g0:
+      move_threshold:
+        name: "${room_title} Gate 0 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 0 Still Threshold"
+    g1:
+      move_threshold:
+        name: "${room_title} Gate 1 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 1 Still Threshold"
+    g2:
+      move_threshold:
+        name: "${room_title} Gate 2 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 2 Still Threshold"
+    g3:
+      move_threshold:
+        name: "${room_title} Gate 3 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 3 Still Threshold"
+    g4:
+      move_threshold:
+        name: "${room_title} Gate 4 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 4 Still Threshold"
+    g5:
+      move_threshold:
+        name: "${room_title} Gate 5 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 5 Still Threshold"
+    g6:
+      move_threshold:
+        name: "${room_title} Gate 6 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 6 Still Threshold"
+    g7:
+      move_threshold:
+        name: "${room_title} Gate 7 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 7 Still Threshold"
+    g8:
+      move_threshold:
+        name: "${room_title} Gate 8 Move Threshold"
+      still_threshold:
+        name: "${room_title} Gate 8 Still Threshold"
+
+switch:
+  - platform: ld2410
+    engineering_mode:
+      name: "${room_title} Engineering Mode"
+    bluetooth:
+      name: "${room_title} Bluetooth"
+
+text_sensor:
+  - platform: ld2410
+    version:
+      name: "${room_title} Version"
+    mac_address:
+      name: "${room_title} MAC Address"
+
+button:
+  - platform: ld2410
+    query_params:
+      name: "${room_title} Query Params"
+    # Gate thresholds live in the radar module's own flash, not in this config,
+    # so a bad tuning session cannot be undone by reflashing the ESP. This
+    # button is the only way back to a known state without the vendor app.
+    factory_reset:
+      name: "${room_title} Factory Reset"
+    restart:
+      name: "${room_title} Restart"
