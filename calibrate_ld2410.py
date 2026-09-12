@@ -42,6 +42,7 @@ ENERGY_OFFSET = 10
 TIMEOUT_SECONDS = 10
 CONNECT_TIMEOUT_SECONDS = 10.0
 WRITE_VERIFY_TIMEOUT_SECONDS = 5.0
+MODULE_RESTART_SECONDS = 2.0
 
 PHASE_SETUP = "setup"
 PHASE_CONNECTING = "connecting"
@@ -603,6 +604,16 @@ class Calibration:
                 self.device.set_number(entity_id, target)
                 if not self._wait_for_write(entity_id):
                     raise DeviceError(f"{self.write_index[entity_id]['label']} was not confirmed by the device")
+                # ESPHome's set_max_distances_timeout echoes the value at once,
+                # then restarts the module 200 ms later and re-reads every
+                # parameter about 1 s after that. A write sent during the restart
+                # is lost and the re-read publishes the module's old value, which
+                # is how max still gate stayed at 8 while max move landed at 7.
+                # So wait out the restart before the next write, then confirm
+                # the re-read did not revert this one.
+                time.sleep(MODULE_RESTART_SECONDS)
+                if not self._wait_for_write(entity_id):
+                    raise DeviceError(f"{self.write_index[entity_id]['label']} was reverted by the module after restart")
             message = "Calibration written."
         except Exception as error:
             self.log(f"write failed: {error!r}")
