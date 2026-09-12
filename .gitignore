@@ -1,3 +1,4 @@
 secrets.yaml
 .tickets/
 .esphome/
+__pycache__/

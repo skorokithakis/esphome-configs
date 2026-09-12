@@ -1,5 +1,12 @@
+# A room can hold more than one presence sensor, so the device identity cannot be
+# the room alone. Override this on the command line (-s presence_slug presence2)
+# to flash a second board into the same room without colliding on the hostname or
+# on any MQTT topic.
+substitutions:
+  presence_slug: presence
+
 esphome:
-  name: "presence-sensor-${room_slug}"
+  name: "${presence_slug}-${room_slug}"
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -30,7 +37,7 @@ captive_portal:
 mqtt:
   broker: !secret mqtt_hostname
   discovery: false
-  topic_prefix: presence-${room_slug}
+  topic_prefix: sensors/${room_slug}/${presence_slug}
 
 # The web server is the only tuning interface; there is no Home Assistant.
 # 2026.5.3 still defaults to v2, so pin v3 explicitly.
@@ -53,7 +60,14 @@ binary_sensor:
   - platform: ld2410
     has_target:
       name: "${room_title} Occupancy"
-      state_topic: "zigbee2mqtt/sensors/${room_slug}/occupancy"
+      # Occupancy is the one topic anything outside this device cares about, so
+      # it gets a short hand-written name instead of the auto-derived
+      # <prefix>/binary_sensor/<object_id>/state. Publishing it one level under
+      # the prefix rather than on the prefix itself keeps the prefix a pure
+      # branch; a topic that carries a value and also parents 60 others reads
+      # badly in MQTT browsers. This is a convention, not a requirement: <prefix>/#
+      # would match the prefix itself too (MQTT 3.1.1, 4.7.1.2).
+      state_topic: "sensors/${room_slug}/${presence_slug}/occupancy"
     has_moving_target:
       name: "${room_title} Moving Target"
     has_still_target:
