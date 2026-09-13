@@ -31,4 +31,15 @@ case "$room_raw" in
     ;;
 esac
 
-esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path" "$@"
+# `--device OTA` skips the interactive port prompt and lets esphome find the board
+# itself: MQTT IP discovery first, then the mDNS hostname, and MQTT for the log
+# tail. Only added when the caller has not chosen a device, so a fresh board can
+# still be flashed with `--device /dev/ttyACM0` without esphome trying the network
+# first.
+device_args=()
+case " $* " in
+  *" --device "*|*" --device="*) ;;
+  *) device_args=(--device OTA) ;;
+esac
+
+esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path" "${device_args[@]}" "$@"

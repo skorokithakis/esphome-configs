@@ -7,6 +7,21 @@ substitutions:
 
 esphome:
   name: "${presence_slug}-${room_slug}"
+  on_boot:
+    # The photoresistor divider uses the chip's internal pull-down as its bottom
+    # leg, but two things stop that being a plain pin `mode` on the adc sensor.
+    # The ESP32 adc component never calls setup() on its pin object, so any mode
+    # given there is parsed and discarded. And ESP-IDF's
+    # adc_oneshot_config_channel() explicitly disables both pulls on the pad when
+    # it claims the channel. Setting the pull here, at the lowest priority so it
+    # runs after every component's setup(), lands after that clearing and sticks.
+    #
+    # This only holds because the adc sensor uses a fixed attenuation, which
+    # configures the channel once. `attenuation: auto` reconfigures on every read
+    # and would wipe the pull-down each time. Do not switch it to auto.
+    - priority: -100
+      then:
+        - lambda: gpio_set_pull_mode(GPIO_NUM_1, GPIO_PULLDOWN_ONLY);
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -60,11 +75,11 @@ binary_sensor:
   - platform: ld2410
     has_target:
       name: "${room_title} Occupancy"
-      # Occupancy is the one topic anything outside this device cares about, so
-      # it gets a short hand-written name instead of the auto-derived
-      # <prefix>/binary_sensor/<object_id>/state. Publishing it one level under
-      # the prefix rather than on the prefix itself keeps the prefix a pure
-      # branch; a topic that carries a value and also parents 60 others reads
+      # Occupancy and luminance are the only two topics anything outside this
+      # device cares about, so they get short hand-written names instead of the
+      # auto-derived <prefix>/binary_sensor/<object_id>/state. Publishing them one
+      # level under the prefix rather than on the prefix itself keeps the prefix a
+      # pure branch; a topic that carries a value and also parents 60 others reads
       # badly in MQTT browsers. This is a convention, not a requirement: <prefix>/#
       # would match the prefix itself too (MQTT 3.1.1, 4.7.1.2).
       state_topic: "sensors/${room_slug}/${presence_slug}/occupancy"
@@ -79,7 +94,8 @@ sensor:
     # This module reports firmware 1.07.22082218 and carries no ambient light
     # sensor, so both stay unavailable. The threshold would only gate the
     # module's OUT pin, which this config never reads, because presence arrives
-    # over UART instead.
+    # over UART instead. Ambient light comes from a separate photoresistor
+    # wired to the ESP; see the adc sensor at the end of this block.
     moving_distance:
       name: "${room_title} Moving Distance"
     # The per-gate energies further down only publish while engineering mode is
@@ -138,6 +154,84 @@ sensor:
         name: "${room_title} Gate 8 Move Energy"
       still_energy:
         name: "${room_title} Gate 8 Still Energy"
+
+  # Ambient light from a bare photoresistor, so downstream software can decide
+  # whether a room is dark enough to want its light on. The decision and any
+  # hysteresis live downstream, not here.
+  #
+  # ADC1 is the only ADC block that works while WiFi is on, and on the C3 it
+  # covers GPIO0 to GPIO4. GPIO3 and GPIO4 carry the LD2410 UART, and GPIO2 is a
+  # boot strapping pin that a divider could hold low at boot, so only GPIO0 and
+  # GPIO1 are left. GPIO1 is used here and GPIO0 stays spare.
+  #
+  # Wiring is the photoresistor alone, between 3V3 and GPIO1. The bottom leg of
+  # the divider is the chip's internal pull-down, enabled in on_boot above, which
+  # saves a hand-soldered resistor. That pull-down is only loosely specified,
+  # tens of kilohms and drifting with temperature, so the raw scale is neither
+  # accurate nor the same from board to board. Acceptable here: nothing needs a
+  # real light level, only a dark-or-not decision against a threshold tuned per
+  # room downstream.
+  #
+  # The photoresistor is on the 3V3 side rather than the GND side on purpose.
+  # In room light it is several times larger than the internal pull, so it takes
+  # most of the 3.3V. With it on the GND side that put every indoor light level
+  # between 2.5V and 3.3V, above the C3 ADC's ceiling, and a lit room read the
+  # same as pitch dark. Swapping sides mirrors the divider: the same ratios now
+  # land in roughly 0.1V to 0.8V, inside the readable range, and bright reads
+  # high so no inversion is needed. The cost is that the useful span sits in the
+  # bottom third of the ADC range, where it is least accurate, so dark reads as
+  # a noisy few percent rather than a clean zero.
+  - platform: adc
+    pin: GPIO1
+    name: "${room_title} Luminance"
+    state_topic: "sensors/${room_slug}/${presence_slug}/luminance"
+    unit_of_measurement: "%"
+    device_class: illuminance
+    accuracy_decimals: 0
+    # Fixed attenuation is required, not just preferred; see on_boot. 12db is the
+    # widest range the C3 offers.
+    attenuation: 12db
+    samples: 16
+    # Sampled four times a second so a light switching on is published well
+    # under a second later. The 3-wide median below needs two samples on the new
+    # side before it moves, so latency is about two ticks plus the wait for the
+    # next one: around 0.75s worst case at this rate. The filters decide what
+    # actually gets sent, so the fast rate does not add MQTT traffic.
+    update_interval: 250ms
+    filters:
+      # Mains lighting ripples at 50Hz and the divider runs at a high impedance
+      # in the dark, so both oversampling and a median are needed to settle it.
+      # The window is kept short because a median lags by about half its width,
+      # and this sensor exists to react quickly. send_every defaults to the
+      # window size, which would drop most readings; 1 makes it a rolling median.
+      - median:
+          window_size: 3
+          send_every: 1
+      # Map the ADC's full 0-2.5V span onto 0-100 through a square root. The
+      # anchors are the ADC range, not measured light levels, so two boards stay
+      # comparable. The root is there because everything indoors lands in the
+      # bottom third of the range: linear gave a lit room in the 20s and a dark
+      # one in single digits, too tight a gap to threshold comfortably. Square
+      # root roughly doubles it. It is also close to the physics: the divider
+      # makes voltage go as about lux^0.7, and a root on top gives lux^0.35, near
+      # the cube-root curve of human brightness perception, so the number reads
+      # the way the room looks. Log would spread the low end further but blows up
+      # at zero and amplifies noise exactly where the ADC is noisiest.
+      #
+      # The clamp runs first so the root never sees a negative input from ADC
+      # calibration overshoot, which would produce NaN, and so the output is
+      # bounded 0-100 without a second clamp.
+      - clamp:
+          min_value: 0
+          max_value: 2.5
+      - lambda: return 100.0f * powf(x / 2.5f, 0.5f);
+      # Publish when the value moves at least 5 points from the last published
+      # one, or every 30s regardless so a subscriber can tell the sensor is alive.
+      # The heartbeat timer does not reset on a delta publish, so a busy room can
+      # produce two messages a few seconds apart. That is harmless.
+      - or:
+          - delta: 5
+          - heartbeat: 30s
 
 number:
   - platform: ld2410
