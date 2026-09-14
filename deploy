@@ -42,4 +42,4 @@ case " $* " in
   *) device_args=(--device OTA) ;;
 esac
 
-esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path" "${device_args[@]}" "$@"
+uvx esphome -s room_slug "$room_slug" -s room_title "$room_title" run "$config_path" "${device_args[@]}" "$@"
