@@ -109,51 +109,100 @@ sensor:
       name: "${room_title} Still Energy"
     detection_distance:
       name: "${room_title} Detection Distance"
+    # ESPHome normally gives every ld2410 sensor a
+    # `throttle_with_priority: 1000ms` filter. The radar sends 10 to 13 frames
+    # a second, so measuring the empty-room peak through that throttle sees
+    # under one frame in ten. The calibrator then writes thresholds too low,
+    # and presence flickers in an empty room. An empty filter list removes that
+    # throttle. The component already publishes only on value change, and only
+    # while engineering mode is on, so this costs nothing outside calibration.
+    #
+    # These energies have no MQTT state topic because nothing downstream reads
+    # them; only occupancy and luminance matter, as explained above at
+    # `has_target`. During calibration they could otherwise send up to 180
+    # messages a second, loading the C3's WiFi for no reader. The web server
+    # still exposes them, which is all the calibrator needs.
     g0:
       move_energy:
         name: "${room_title} Gate 0 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 0 Still Energy"
+        filters: []
+        state_topic: null
     g1:
       move_energy:
         name: "${room_title} Gate 1 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 1 Still Energy"
+        filters: []
+        state_topic: null
     g2:
       move_energy:
         name: "${room_title} Gate 2 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 2 Still Energy"
+        filters: []
+        state_topic: null
     g3:
       move_energy:
         name: "${room_title} Gate 3 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 3 Still Energy"
+        filters: []
+        state_topic: null
     g4:
       move_energy:
         name: "${room_title} Gate 4 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 4 Still Energy"
+        filters: []
+        state_topic: null
     g5:
       move_energy:
         name: "${room_title} Gate 5 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 5 Still Energy"
+        filters: []
+        state_topic: null
     g6:
       move_energy:
         name: "${room_title} Gate 6 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 6 Still Energy"
+        filters: []
+        state_topic: null
     g7:
       move_energy:
         name: "${room_title} Gate 7 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 7 Still Energy"
+        filters: []
+        state_topic: null
     g8:
       move_energy:
         name: "${room_title} Gate 8 Move Energy"
+        filters: []
+        state_topic: null
       still_energy:
         name: "${room_title} Gate 8 Still Energy"
+        filters: []
+        state_topic: null
 
   # Ambient light from a bare photoresistor, so downstream software can decide
   # whether a room is dark enough to want its light on. The decision and any
