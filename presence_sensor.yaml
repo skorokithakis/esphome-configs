@@ -243,9 +243,11 @@ sensor:
     samples: 16
     # Sampled four times a second so a light switching on is published well
     # under a second later. The 3-wide median below needs two samples on the new
-    # side before it moves, so latency is about two ticks plus the wait for the
-    # next one: around 0.75s worst case at this rate. The filters decide what
-    # actually gets sent, so the fast rate does not add MQTT traffic.
+    # side before it moves, so latency is up to one tick of waiting for the
+    # first new sample plus one more tick: around 0.5s worst case at this rate.
+    # The photoresistor itself is slower than this when light goes away, so
+    # this is not the bottleneck on light-off; see the delta below. The filters
+    # decide what actually gets sent, so a steady room adds no MQTT traffic.
     update_interval: 250ms
     filters:
       # Mains lighting ripples at 50Hz and the divider runs at a high impedance
@@ -274,12 +276,20 @@ sensor:
           min_value: 0
           max_value: 2.5
       - lambda: return 100.0f * powf(x / 2.5f, 0.5f);
-      # Publish when the value moves at least 5 points from the last published
+      # Publish when the value moves at least 2 points from the last published
       # one, or every 30s regardless so a subscriber can tell the sensor is alive.
       # The heartbeat timer does not reset on a delta publish, so a busy room can
       # produce two messages a few seconds apart. That is harmless.
+      #
+      # The delta is small because the photoresistor recovers slowly when light
+      # goes away. Measured in the living room: lit 38 fell to 9 within 0.75s of
+      # the switch, then took another 5s to settle at 3. With a delta of 5 that
+      # whole tail arrived as one late jump, so a downstream threshold near the
+      # dark level fired seconds late. At 2 the tail is published as it happens.
+      # The cost is that dark-room noise of a couple of points can publish up to
+      # once per sample, which is harmless on a local broker.
       - or:
-          - delta: 5
+          - delta: 2
           - heartbeat: 30s
 
 number:
