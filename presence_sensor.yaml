@@ -22,6 +22,24 @@ esphome:
     - priority: -100
       then:
         - lambda: gpio_set_pull_mode(GPIO_NUM_1, GPIO_PULLDOWN_ONLY);
+    # After a cold power-on, the bedroom radar answers commands but sends no
+    # presence frames, so every reading stays NA. A restart command sent after
+    # boot has fixed it every time, so send one at every boot.
+    #
+    # The cause is unknown. It reproduced on ESPHome 2026.5.3 and 2026.9.1 and
+    # after a radar factory reset, while the other rooms' boards with the same
+    # config start fine. The guess is a hardware fault on that board, such as
+    # the 5V supply sagging while the radar starts; this was not measured.
+    #
+    # The restart costs about a second of radar downtime, harmless in rooms that
+    # do not need it, so it runs everywhere instead of behind a per-room switch.
+    # The 5s delay is a guess that worked; the minimum was not tested. A
+    # watchdog that restarts the radar whenever frames stop was rejected
+    # because only power-on failures have been seen.
+    - priority: -100
+      then:
+        - delay: 5s
+        - button.press: ld2410_restart
 
 esp32:
   board: esp32-c3-devkitm-1
@@ -370,4 +388,5 @@ button:
     factory_reset:
       name: "${room_title} Factory Reset"
     restart:
+      id: ld2410_restart
       name: "${room_title} Restart"
